@@ -228,32 +228,6 @@ class Conexion
     }
 
     /**
-     * Get the path from the full proyect begin
-     * 
-     * @return string The path
-     */
-    public function get_base_url() {
-        // Getting the full path from the root of the server to the begining of the storage of the website
-        $from_0 = explode('/', $_SERVER['DOCUMENT_ROOT']);
-
-        // Getting the $from_0 AND the path of the internal estructure of the website
-        $origin = explode("\\", __DIR__);
-
-        // Creating the path from the root of the server until the begining of the website
-        $base_url = implode("/", $from_0) . "/" . $origin[count($from_0)] . "/";
-        return $base_url;
-    }
-
-    /**
-     * Join the given path to the base url
-     * 
-     * @return string The full path joined
-     */
-    public function get_path_from_origin(string $destiny_from_origin) {
-        return $this->get_base_url() . $destiny_from_origin;
-    }
-
-    /**
      * Prepare the data to avoid SQL Inyections
      * 
      * @param string $variable The data to prepare
@@ -261,11 +235,52 @@ class Conexion
      * 
      * @return string The data prepared
      */
-    public function prepareVariableToPreparedQuery (string $variable, bool $etn_quotes = false) : string {
-        if ($etn_quotes);
+    public function prepareVariableToPreparedQuery (string $variable, bool $ent_quotes = false) : string {
+        if ($ent_quotes);
             return htmlentities(addslashes($variable), ENT_QUOTES);
 
         return htmlentities(addslashes($variable));
+    }
+
+    /**
+     * Get the path from where you are to where you want to be
+     * 
+     * @param string $path_from_origin The path from the root folder where you want to be
+     * @param string $actual_path The path where you are calling this function. Recomendation: use the __DIR__ constant
+     * 
+     * @return string The path
+     */
+    public function get_relative_path(string $path_from_origin, string $_actual_path) : string {
+        $relative_path = "";
+
+        // Formating the actual path
+        $actual_path = str_replace('\\', '/', $_actual_path);
+        if ($this->im_in_root_folder($actual_path)) {
+            return $path_from_origin;
+        }
+
+        // File folder path
+        $path_dirname = pathinfo($path_from_origin, PATHINFO_DIRNAME);
+        $path_dirname_folders = explode('/', $path_dirname);
+        $actual_path_folders = explode('/', $actual_path);
+        $actual_path_folders_reverse = array_reverse($actual_path_folders);
+        foreach ($actual_path_folders_reverse as $folder) {
+            if ($this->im_in_root_folder($folder)) {
+                $relative_path .= $path_from_origin;
+                break;
+            }
+
+            $is_in_same_path = array_search($folder, $path_dirname_folders);
+            if ($is_in_same_path === false) {
+                $relative_path .= "../";
+            } else {
+                $_missing_path = array_slice($path_dirname_folders, $is_in_same_path + 1);
+                $missing_path = implode('/', $_missing_path);
+                $relative_path .= $missing_path . "/" . pathinfo($path_from_origin, PATHINFO_BASENAME);
+                break;
+            }
+        }
+        return $relative_path;
     }
 
     /**
@@ -389,6 +404,62 @@ class Conexion
      */
     private function is_assoc(array $array) {
         return array_keys($array) !== range(0, count($array) - 1);
+    }
+
+    /**
+     * Gets the name of the root folder
+     * 
+     * @return string name of the folder
+     */
+    private function get_root_folder() {
+        $_root_folder = explode('/', $this->get_base_url());
+        $root_folder = $_root_folder[count($_root_folder) - 2];
+        return $root_folder;
+    }
+
+    /**
+     * Get the path from the full proyect begin
+     * 
+     * @return string The path
+     */
+    private function get_base_url() {
+        // Getting number of folders before the website folder
+        $a = count(explode('/', $_SERVER['DOCUMENT_ROOT']));
+
+        // Getting the $from_0 AND the path of the internal estructure of the website
+        $origin = explode("\\", __DIR__);
+
+        // Creating the path from the root of the server until the begining of the website
+        $base_url = str_replace('\\', "/", $_SERVER['DOCUMENT_ROOT']) . "/" . $origin[$a] . "/";
+        return $base_url;
+    }
+
+    /**
+     * Join the given path to the base url
+     * 
+     * @return string The full path joined
+     */
+    private function get_path_from_origin(string $destiny_from_origin) {
+        $destiny = explode('/', str_replace('\\', '/', $destiny_from_origin));
+        $fullpath = $this->get_base_url();
+        $fullpath .= $destiny[0] == '/' ? array_slice($destiny, 1) : $destiny_from_origin;
+        return $fullpath;
+    }
+    
+    /**
+     * Verify if the last folder of given path is the root folder of the website
+     * 
+     * @param string @_path The path to evaluate
+     * 
+     * @return bool
+     */
+    private function im_in_root_folder(string $_path) {
+        $path = str_replace('\\', '/', $_path);
+        $root_folder_name = $this->get_root_folder();
+        if ($root_folder_name == @end(explode('/', $path))) {
+            return true;
+        }
+        return false;
     }
     
     // Datos de conexion para servidor local
